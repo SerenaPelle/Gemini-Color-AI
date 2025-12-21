@@ -86,16 +86,19 @@ for message in st.session_state.messages:
 
 # React to user input
 if prompt := st.chat_input("Ex: 'Which blue is best for a sky?'"):
-    # Add user message to history
+    # 1. Add user message to history
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-# Generate smarter "AI" response
+    # 2. Generate smarter "AI" response (This must be indented!)
     with st.chat_message("assistant"):
         if uploaded_file:
-            response = f"I've analyzed the landscape! For those lush trees, I recommend **{found_matches[1]}**. For the stone paths, **{found_matches[2]}** is a great match. What kind of art are you planning to create with these?"
+            # We use found_matches if they exist
+            response = f"I've analyzed the landscape! Based on the colors I found, I recommend **{found_matches[0]}** and **{found_matches[1]}**. What kind of art are you planning to create?"
         else:
-            response = "I'm ready to help! Please upload an image so I can analyze the specific shades for you."
-
-
+            response = "I'm ready to help! Please upload an image in the sidebar so I can analyze the specific shades for you."
+        
+        st.markdown(response)
+        # 3. Save the response so it doesn't disappear
+        st.session_state.messages.append({"role": "assistant", "content": response})

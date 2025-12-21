@@ -2,67 +2,64 @@ import streamlit as st
 from PIL import Image
 import numpy as np
 from sklearn.cluster import KMeans
-import webcolors
 
-# --- UI CONFIGURATION (Gemini Style) ---
-st.set_page_config(page_title="Gemini Color AI", page_icon="✨", layout="wide")
+# --- BRAND DATABASE ---
+# Format: "Product Name": [R, G, B, "Category", "Buy Link"]
+BRAND_DATABASE = {
+    "Sherwin-Williams: Naval": [47, 61, 80, "Paint", "https://www.sherwin-williams.com"],
+    "Benjamin Moore: Hale Navy": [54, 65, 77, "Paint", "https://www.benjaminmoore.com"],
+    "Prismacolor: Indigo Blue (PC901)": [30, 45, 80, "Pencil", "https://www.prismacolor.com"],
+    "Winsor & Newton: French Ultramarine": [18, 52, 144, "Oil Paint", "https://www.winsornewton.com"],
+    "Prismacolor: Sunburst Yellow (PC917)": [255, 215, 0, "Pencil", "https://www.prismacolor.com"],
+    "Sherwin-Williams: Tricorn Black": [47, 47, 48, "Paint", "https://www.sherwin-williams.com"],
+    "Faber-Castell: Emerald Green": [0, 150, 100, "Pencil", "https://www.fabercastell.com"],
+    # You can add hundreds of these rows!
+}
 
-st.markdown("""
-    <style>
-    .main { background-color: #f8f9fa; }
-    .stButton>button { background-color: #1a73e8; color: white; border-radius: 20px; }
-    .color-card { padding: 20px; border-radius: 15px; margin: 10px; text-align: center; color: white; font-weight: bold; text-shadow: 1px 1px 2px #000; }
-    </style>
-    """, unsafe_allow_html=True)
+st.set_page_config(page_title="Gemini Art Assistant", page_icon="🎨", layout="wide")
 
-st.title("✨ Gemini Color Analysis AI")
-st.write("Upload an image, and I will analyze the aesthetic DNA and dominant color palettes for you.")
-
-# --- HELPER FUNCTIONS ---
-def get_color_name(rgb):
-    try:
-        return webcolors.rgb_to_name(rgb)
-    except:
-        return "Custom Shade"
-
-def analyze_colors(image, num_colors=5):
-    # Resize to speed up AI processing
-    img = image.copy()
-    img.thumbnail((200, 200))
-    img_array = np.array(img.convert('RGB'))
+# --- AI MATCHING ENGINE ---
+def find_closest_product(target_rgb):
+    closest_name = None
+    min_dist = float('inf')
     
-    # Flatten the image into a list of pixels
-    pixels = img_array.reshape(-1, 3)
-    
-    # Use K-Means AI to find the 'clusters' of colors
-    model = KMeans(n_clusters=num_colors, n_init=10)
-    model.fit(pixels)
-    
-    return model.cluster_centers_.astype(int)
+    for name, data in BRAND_DATABASE.items():
+        # The Math: Distance = sqrt((R1-R2)^2 + (G1-G2)^2 + (B1-B2)^2)
+        dist = np.sqrt(sum((np.array(target_rgb) - np.array(data[:3]))**2))
+        if dist < min_dist:
+            min_dist = dist
+            closest_name = name
+            
+    return closest_name, BRAND_DATABASE[closest_name]
 
-# --- APP LOGIC ---
-uploaded_file = st.file_uploader("Drop an image here...", type=["jpg", "jpeg", "png"])
+# --- UI LAYOUT ---
+st.title("🎨 Gemini Art & Paint Matcher")
+st.write("Upload an image to find matching real-world paints and pencils.")
+
+uploaded_file = st.file_uploader("Choose a photo", type=["jpg", "png"])
 
 if uploaded_file:
-    col1, col2 = st.columns([1, 1])
     image = Image.open(uploaded_file)
+    st.image(image, width=400)
     
-    with col1:
-        st.image(image, caption="Uploaded Image", use_container_width=True)
+    # Process image for colors
+    img_small = image.copy()
+    img_small.thumbnail((100, 100))
+    pixels = np.array(img_small.convert('RGB')).reshape(-1, 3)
     
-    with col2:
-        st.subheader("🤖 AI Analysis")
-        with st.spinner("Analyzing spectral data..."):
-            colors = analyze_colors(image)
-            
-            st.write("I've identified these as the dominant tones in your image:")
-            
-            for color in colors:
-                hex_val = '#%02x%02x%02x' % tuple(color)
-                st.markdown(f"""
-                    <div class="color-card" style="background-color: {hex_val};">
-                        {hex_val.upper()}
-                    </div>
-                """, unsafe_allow_html=True)
-                
-    st.success("Analysis complete. These colors represent the core visual identity of your upload.")
+    # Get 3 dominant colors
+    model = KMeans(n_clusters=3, n_init=10).fit(pixels)
+    colors = model.cluster_centers_.astype(int)
+
+    st.subheader("🛍️ Recommended Supplies")
+    cols = st.columns(3)
+
+    for i, rgb in enumerate(colors):
+        hex_val = '#%02x%02x%02x' % tuple(rgb)
+        product_name, info = find_closest_product(rgb)
+        
+        with cols[i]:
+            st.markdown(f'<div style="background-color:{hex_val}; height:50px; border-radius:10px;"></div>', unsafe_allow_True=True)
+            st.write(f"**Target:** {hex_val}")
+            st.info(f"**Match:** {product_name}\n\n*Type: {info[3]}*")
+            st.link_button("View Product", info[4])

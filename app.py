@@ -4,26 +4,26 @@ import numpy as np
 from sklearn.cluster import KMeans
 
 # --- BRAND DATABASE (same as before) ---
-# --- EXPANDED BRAND DATABASE ---
+# --- PROFESSIONAL ARTIST DATABASE ---
 BRAND_DATABASE = {
-    # PAINTS
-    "Sherwin-Williams: Naval": [47, 61, 80, "Paint", "https://www.sherwin-williams.com"],
-    "Sherwin-Williams: Garden Sage": [125, 126, 100, "Paint", "https://www.sherwin-williams.com"],
-    "Benjamin Moore: Hunter Green": [53, 66, 56, "Paint", "https://www.benjaminmoore.com"],
-    "Farrow & Ball: Sap Green": [103, 110, 75, "Paint", "https://www.farrow-ball.com"],
-    "Behr: Terra Cotta Tile": [186, 115, 87, "Paint", "https://www.behr.com"],
-    "Valspar: Warm Apricot": [235, 180, 120, "Paint", "https://www.valspar.com"],
-    
-    # PENCILS (Prismacolor)
-    "Prismacolor: Olive Green (PC911)": [115, 125, 65, "Pencil", "https://www.prismacolor.com"],
-    "Prismacolor: Sand (PC940)": [220, 195, 145, "Pencil", "https://www.prismacolor.com"],
-    "Prismacolor: Espresso (PC1099)": [65, 50, 45, "Pencil", "https://www.prismacolor.com"],
+    # SKY & WATER BLUES
     "Prismacolor: Sky Blue Light (PC1086)": [180, 215, 235, "Pencil", "https://www.prismacolor.com"],
-    
-    # ARTIST OILS/WATERCOLORS
+    "Prismacolor: Cloud Blue (PC1023)": [190, 210, 225, "Pencil", "https://www.prismacolor.com"],
+    "Winsor & Newton: Cerulean Blue": [42, 82, 190, "Oil Paint", "https://www.winsornewton.com"],
+    "Sherwin-Williams: Sky High": [210, 225, 235, "Paint", "https://www.sherwin-williams.com"],
+    "Caran d'Ache: Ultramarine": [18, 10, 143, "Pencil", "https://www.carandache.com"],
+
+    # FOLIAGE & LANDSCAPE GREENS
+    "Prismacolor: Olive Green (PC911)": [115, 125, 65, "Pencil", "https://www.prismacolor.com"],
+    "Prismacolor: Apple Green (PC912)": [140, 185, 70, "Pencil", "https://www.prismacolor.com"],
+    "Holbein: Sap Green": [80, 105, 55, "Watercolor", "https://www.holbeinartistmaterials.com"],
+    "Sherwin-Williams: Garden Sage": [125, 126, 100, "Paint", "https://www.sherwin-williams.com"],
+
+    # EARTH, STONE & HIGHLIGHTS
     "Winsor & Newton: Yellow Ochre": [195, 155, 75, "Oil Paint", "https://www.winsornewton.com"],
     "Winsor & Newton: Burnt Umber": [70, 55, 45, "Oil Paint", "https://www.winsornewton.com"],
-    "Holbein: Sap Green": [80, 105, 55, "Watercolor", "https://www.holbeinartistmaterials.com"],
+    "Prismacolor: Sand (PC940)": [220, 195, 145, "Pencil", "https://www.prismacolor.com"],
+    "Farrow & Ball: Old White": [215, 210, 195, "Paint", "https://www.farrow-ball.com"],
 }
 
 st.set_page_config(page_title="Gemini Art Assistant", page_icon="🎨", layout="wide")
@@ -91,14 +91,22 @@ if prompt := st.chat_input("Ex: 'Which blue is best for a sky?'"):
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # 2. Generate smarter "AI" response (This must be indented!)
+    # Generate smarter "AI" response
     with st.chat_message("assistant"):
         if uploaded_file:
-            # We use found_matches if they exist
-            response = f"I've analyzed the landscape! Based on the colors I found, I recommend **{found_matches[0]}** and **{found_matches[1]}**. What kind of art are you planning to create?"
+            # Check if user mentioned a specific color word
+            user_query = prompt.lower()
+            suggested = found_matches[0] # Default to the top match
+            
+            if "blue" in user_query or "sky" in user_query:
+                # Look for a blue in our matches
+                blues = [m for m in found_matches if "blue" in m.lower() or "sky" in m.lower()]
+                suggested = blues[0] if blues else found_matches[0]
+                response = f"I see you're looking for sky tones! Based on your photo, **{suggested}** is the closest match for that area."
+            else:
+                response = f"I've analyzed the photo. I recommend **{found_matches[0]}** for the main areas and **{found_matches[1]}** for details. Does that help?"
         else:
-            response = "I'm ready to help! Please upload an image in the sidebar so I can analyze the specific shades for you."
+            response = "I'm ready! Please upload an image so I can find those specific colors for you."
         
         st.markdown(response)
-        # 3. Save the response so it doesn't disappear
         st.session_state.messages.append({"role": "assistant", "content": response})

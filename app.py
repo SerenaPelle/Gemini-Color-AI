@@ -59,7 +59,7 @@ if uploaded_file:
         product_name, info = find_closest_product(rgb)
         
         with cols[i]:
-            st.markdown(f'<div style="background-color:{hex_val}; height:50px; border-radius:10px;"></div>', unsafe_allow_True=True)
+            st.markdown(f'<div style="background-color:{hex_val}; height:50px; border-radius:10px;"></div>', unsafe_allow_html=True
             st.write(f"**Target:** {hex_val}")
             st.info(f"**Match:** {product_name}\n\n*Type: {info[3]}*")
             st.link_button("View Product", info[4])

@@ -4,11 +4,26 @@ import numpy as np
 from sklearn.cluster import KMeans
 
 # --- BRAND DATABASE (same as before) ---
+# --- EXPANDED BRAND DATABASE ---
 BRAND_DATABASE = {
+    # PAINTS
     "Sherwin-Williams: Naval": [47, 61, 80, "Paint", "https://www.sherwin-williams.com"],
-    "Prismacolor: Indigo Blue (PC901)": [30, 45, 80, "Pencil", "https://www.prismacolor.com"],
-    "Winsor & Newton: French Ultramarine": [18, 52, 144, "Oil Paint", "https://www.winsornewton.com"],
-    "Faber-Castell: Emerald Green": [0, 150, 100, "Pencil", "https://www.fabercastell.com"],
+    "Sherwin-Williams: Garden Sage": [125, 126, 100, "Paint", "https://www.sherwin-williams.com"],
+    "Benjamin Moore: Hunter Green": [53, 66, 56, "Paint", "https://www.benjaminmoore.com"],
+    "Farrow & Ball: Sap Green": [103, 110, 75, "Paint", "https://www.farrow-ball.com"],
+    "Behr: Terra Cotta Tile": [186, 115, 87, "Paint", "https://www.behr.com"],
+    "Valspar: Warm Apricot": [235, 180, 120, "Paint", "https://www.valspar.com"],
+    
+    # PENCILS (Prismacolor)
+    "Prismacolor: Olive Green (PC911)": [115, 125, 65, "Pencil", "https://www.prismacolor.com"],
+    "Prismacolor: Sand (PC940)": [220, 195, 145, "Pencil", "https://www.prismacolor.com"],
+    "Prismacolor: Espresso (PC1099)": [65, 50, 45, "Pencil", "https://www.prismacolor.com"],
+    "Prismacolor: Sky Blue Light (PC1086)": [180, 215, 235, "Pencil", "https://www.prismacolor.com"],
+    
+    # ARTIST OILS/WATERCOLORS
+    "Winsor & Newton: Yellow Ochre": [195, 155, 75, "Oil Paint", "https://www.winsornewton.com"],
+    "Winsor & Newton: Burnt Umber": [70, 55, 45, "Oil Paint", "https://www.winsornewton.com"],
+    "Holbein: Sap Green": [80, 105, 55, "Watercolor", "https://www.holbeinartistmaterials.com"],
 }
 
 st.set_page_config(page_title="Gemini Art Assistant", page_icon="🎨", layout="wide")
@@ -76,12 +91,11 @@ if prompt := st.chat_input("Ex: 'Which blue is best for a sky?'"):
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Generate "AI" response
+# Generate smarter "AI" response
     with st.chat_message("assistant"):
         if uploaded_file:
-            response = f"Based on your photo, I recommend focusing on **{found_matches[0]}**. It's the most dominant shade I found!"
+            response = f"I've analyzed the landscape! For those lush trees, I recommend **{found_matches[1]}**. For the stone paths, **{found_matches[2]}** is a great match. What kind of art are you planning to create with these?"
         else:
-            response = "Please upload an image so I can see the colors you're working with!"
-        
-        st.markdown(response)
-        st.session_state.messages.append({"role": "assistant", "content": response})
+            response = "I'm ready to help! Please upload an image so I can analyze the specific shades for you."
+
+

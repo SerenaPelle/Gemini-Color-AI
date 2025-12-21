@@ -75,38 +75,64 @@ if uploaded_file:
             st.markdown(f'<div style="background-color:{hex_val}; height:40px; border-radius:10px;"></div>', unsafe_allow_html=True)
             st.caption(f"**{product_name}**")
 
+if uploaded_file:
+    image = Image.open(uploaded_file)
+    st.image(image, caption="Current Reference", use_container_width=True)
+    
+    # --- STEP 1: INCREASE VISION TO 10 COLORS ---
+    img_small = image.copy().convert('RGB')
+    img_small.thumbnail((100, 100))
+    pixels = np.array(img_small).reshape(-1, 3)
+    
+    # We now look for 10 colors to ensure we catch the sky/details
+    model = KMeans(n_clusters=10, n_init=10).fit(pixels)
+    colors = model.cluster_centers_.astype(int)
+
+    st.write("### 🛍️ Top Matches Found")
+    cols = st.columns(5) # Show top 5 visually
+    found_matches = []
+    
+    for i, rgb in enumerate(colors):
+        product_name, info = find_closest_product(rgb)
+        found_matches.append({"name": product_name, "rgb": rgb, "info": info})
+        
+        # Display only the first 5 in the UI to keep it clean
+        if i < 5:
+            hex_val = '#%02x%02x%02x' % tuple(rgb)
+            with cols[i]:
+                st.markdown(f'<div style="background-color:{hex_val}; height:40px; border-radius:10px;"></div>', unsafe_allow_html=True)
+                st.caption(f"**{product_name}**")
+
 # --- CHAT INTERFACE ---
 st.divider()
 st.subheader("💬 Ask Your Assistant")
 
-# Display previous messages
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# React to user input
 if prompt := st.chat_input("Ex: 'Which blue is best for a sky?'"):
-    # 1. Add user message to history
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Generate smarter "AI" response
     with st.chat_message("assistant"):
         if uploaded_file:
-            # Check if user mentioned a specific color word
             user_query = prompt.lower()
-            suggested = found_matches[0] # Default to the top match
             
+            # --- STEP 2: SMART SEARCH LOGIC ---
+            # If user asks for blue, search ALL 10 found colors for a 'Blue' or 'Sky' product
             if "blue" in user_query or "sky" in user_query:
-                # Look for a blue in our matches
-                blues = [m for m in found_matches if "blue" in m.lower() or "sky" in m.lower()]
-                suggested = blues[0] if blues else found_matches[0]
-                response = f"I see you're looking for sky tones! Based on your photo, **{suggested}** is the closest match for that area."
+                blue_matches = [m["name"] for m in found_matches if "blue" in m["name"].lower() or "sky" in m["name"].lower()]
+                
+                if blue_matches:
+                    response = f"I found a great sky match! Based on the blues in your photo, I recommend **{blue_matches[0]}**."
+                else:
+                    response = "I can see the sky, but it's quite pale. I'd recommend using **Prismacolor: Sky Blue Light** for those areas."
             else:
-                response = f"I've analyzed the photo. I recommend **{found_matches[0]}** for the main areas and **{found_matches[1]}** for details. Does that help?"
+                response = f"For the main parts of this image, I recommend **{found_matches[0]['name']}**."
         else:
-            response = "I'm ready! Please upload an image so I can find those specific colors for you."
+            response = "Please upload an image so I can analyze the colors!"
         
         st.markdown(response)
         st.session_state.messages.append({"role": "assistant", "content": response})

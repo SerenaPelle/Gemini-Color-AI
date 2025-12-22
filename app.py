@@ -74,43 +74,41 @@ if prompt := st.chat_input("Ask about the specific blue in the water..."):
         else:
             query = prompt.lower()
             families = {
-                "red": ["red", "light", "tail", "crimson", "scarlet", "stop"],
-                "orange": ["orange", "terracotta", "rust", "amber", "wall"],
-                "blue": ["blue", "sky", "water", "navy", "cyan"],
-                "green": ["green", "leaf", "tree", "sage", "olive"]
+                "red": ["red", "house", "roof", "building", "crimson", "terra"],
+                "orange": ["orange", "wall", "terracotta", "clay", "amber"],
+                "blue": ["blue", "sky", "water", "navy", "boat"],
+                "green": ["green", "tree", "grass", "shutter", "olive"]
             }
             
+            # Identify the object and color from your question
             target = next((f for f, words in families.items() if any(w in query for w in words)), None)
+            object_name = next((word for word in ["house", "boat", "car", "sky", "wall", "roof"] if word in query), "area")
             
             if target:
-                # 1. Filter CSV for the family
                 filtered_df = df_colors[df_colors['name'].str.lower().str.contains('|'.join(families[target]))].copy()
                 
                 if not filtered_df.empty:
-                    # 2. DEEP SCAN: Look at every pixel in the 100x100 thumbnail
-                    # This finds the 'purest' version of the color you asked for
                     best_match = None
                     min_dist = 999
                     
-                    # We scan all pixels to find the one that fits your 'Red' request best
+                    # SCAN ALL PIXELS for the most vibrant match
                     for px in pixels:
-                        # Only check pixels that are actually colorful (Saturation check)
-                        if (np.max(px) - np.min(px)) > 30: 
+                        if (np.max(px) - np.min(px)) > 25: # Filter out 'dull' grey pixels
                             match, dist = find_precise_match(px, filtered_df)
                             if dist < min_dist:
                                 min_dist = dist
                                 best_match = match
                     
                     if best_match is not None:
-                        res = f"I've identified that specific **{target}** detail! For the car light/area, I recommend **{best_match['name']}**. [Shop this shade ↗️]({best_match['url']})"
+                        res = f"I've analyzed the **{object_name}**. For that specific shade, I recommend **{best_match['name']}**. \n\n[Shop this exact shade ↗️]({best_match['url']})"
                     else:
-                        res = f"I see you're asking about {target}, but I couldn't find a strong enough match in the image details. Try asking about a larger area!"
+                        res = f"I see the {target} {object_name}, but it's a bit blurry. The closest supply match is **{find_precise_match(colors[0], filtered_df)[0]['name']}**."
                 else:
-                    res = f"I need more {target} shades in your CSV to give a precise answer."
+                    res = f"I found the {target}, but I need more shades in that family in the CSV!"
             else:
-                # Fallback
-                top_hit, _ = find_precise_match(colors[0], df_colors)
-                res = f"The most prominent match in the center is **{top_hit['name']}**. Were you looking for the car light or the orange buildings?"
+                # General fallback that doesn't guess the wrong object
+                top_match, _ = find_precise_match(colors[0], df_colors)
+                res = f"The most prominent match for that {object_name} is **{top_match['name']}**."
         
         st.write(res)
         st.session_state.messages.append({"role": "assistant", "content": res})

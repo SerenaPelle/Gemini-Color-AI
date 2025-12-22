@@ -77,48 +77,38 @@ if prompt := st.chat_input("Ask about the orange house vs red house..."):
             res = "Please upload an image first!"
         else:
             query = prompt.lower()
-            # Strict definitions to stop the 'Rosemary' (Green) or 'Dovetail' (Grey) errors
+            # We split the families into narrower groups to force distinction
             families = {
-                "red": ["red", "house", "roof", "building", "crimson", "terra"],
-                "orange": ["orange", "wall", "terracotta", "clay", "amber"],
-                "blue": ["blue", "sky", "water", "navy", "boat"],
-                "green": ["green", "tree", "grass", "shutter", "olive"]
+                "red": ["red", "crimson", "burgundy", "deep red"],
+                "orange": ["orange", "terracotta", "rust", "clay", "burnt"],
+                "pink": ["pink", "magenta", "building"]
             }
             
             target = next((f for f, words in families.items() if any(w in query for w in words)), None)
-            obj = next((w for w in ["house", "boat", "car", "sky", "wall", "roof"] if w in query), "area")
             
             if target:
-                # 1. FORCE FILTER: Only allow shades from the CSV that match the word
+                # 1. Narrow the search to ONLY the requested family first
                 filtered_df = df_colors[df_colors['name'].str.lower().str.contains('|'.join(families[target]))].copy()
                 
                 if not filtered_df.empty:
                     best_match = None
                     min_dist = 999
                     
-                    # 2. VIBRANCY SCAN: Look for the most 'intense' version of that color
+                    # 2. Find the pixel in the image that is the 'purest' version of that color
+                    # This ignores the shadows that make the two houses look the same
                     for rgb in colors:
-                        # Check saturation: (Max - Min). Greys/Shadows have low saturation.
-                        sat = np.max(rgb) - np.min(rgb)
-                        
-                        # Only proceed if the pixel is actually colorful
-                        if sat > 25: 
+                        # Check if the cluster is colorful enough to be the house
+                        if (np.max(rgb) - np.min(rgb)) > 25: 
                             m, d = find_precise_match(rgb, filtered_df)
-                            # We want the color that is mathematically closest to our target family
                             if d < min_dist:
                                 min_dist = d
                                 best_match = m
                     
-                    if best_match is not None:
-                        res = f"I've isolated the **{target}** from the background. For that specific {obj}, the best match is **{best_match['name']}**. [Link to Shade]({best_match['url']})"
-                    else:
-                        # Fallback if the image is too dark/shadowy
-                        res = f"The {obj} is in deep shadow, but based on the hue, I recommend **{filtered_df.iloc[0]['name']}**."
+                    res = f"I've differentiated the **{target}** building. For that specific shade, I recommend **{best_match['name']}**. [Link]({best_match['url']})"
                 else:
-                    res = f"I see the {target}, but I need more {target} shades in your CSV to be 100% sure!"
+                    res = f"I see the {target}, but I need more specific {target} shades in your CSV to tell them apart!"
             else:
-                top_match, _ = find_precise_match(colors[0], df_colors)
-                res = f"The most prominent match for that {obj} is **{top_match['name']}**."
+                res = "I can see several buildings. Are you asking about the red house or the orange one next to it?"
         
         st.write(res)
         st.session_state.messages.append({"role": "assistant", "content": res})

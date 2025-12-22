@@ -73,30 +73,48 @@ if prompt := st.chat_input("Ask about the specific blue in the water..."):
             res = "Please upload an image first!"
         else:
             query = prompt.lower()
-            # Dynamic family filtering
+            # Expanded families with "Saturation Weights"
             families = {
-                "blue": ["blue", "sky", "water", "navy", "cyan"],
-                "red": ["red", "roof", "terracotta", "crimson"],
-                "pink": ["pink", "magenta", "building"]
+                "orange": ["orange", "terracotta", "rust", "amber", "clay"],
+                "blue": ["blue", "sky", "water", "navy", "cyan", "azure"],
+                "red": ["red", "crimson", "scarlet", "roof", "building"],
+                "pink": ["pink", "magenta", "fuchsia", "building"],
+                "green": ["green", "grass", "tree", "olive"]
             }
             
             target = next((f for f, words in families.items() if any(w in query for w in words)), None)
             
             if target:
-                # Filter to only the requested family before matching
+                # 1. Filter the CSV for the requested family
                 filtered_df = df_colors[df_colors['name'].str.lower().str.contains('|'.join(families[target]))].copy()
                 
                 if not filtered_df.empty:
-                    # Find which of our 12 clusters is the closest match for the user's request
-                    # This is how the AI tells the difference between sky blue and water blue
-                    matches = [find_precise_match(c, filtered_df) for c in colors]
-                    best_match = min(matches, key=lambda x: x[1])[0]
+                    # 2. INTELLIGENT SCAN: Find the pixel in the image that is the "Most Orange"
+                    # We look through all 15 clusters to find the one that fits the family best
+                    best_match = None
+                    min_dist = 999
                     
-                    res = f"I see the **{target}** you're asking about. For that exact shade, I recommend **{best_match['name']}**. [Link to Product]({best_match['url']})"
+                    for rgb in colors:
+                        # Find the best supply match for this specific cluster
+                        match, dist = find_precise_match(rgb, filtered_df)
+                        
+                        # We prioritize clusters that are actually colorful, not grey
+                        saturation = np.max(rgb) - np.min(rgb)
+                        weighted_dist = dist / (saturation + 1) # Lower is better
+                        
+                        if weighted_dist < min_dist:
+                            min_dist = weighted_dist
+                            best_match = match
+                            detected_rgb = rgb
+                    
+                    hex_match = '#%02x%02x%02x' % tuple(detected_rgb)
+                    res = f"I've found that specific **{target}** shade! Based on the vibrant pixels at the top, I recommend **{best_match['name']}**. \n\n[Shop the exact shade here ↗️]({best_match['url']})"
                 else:
-                    res = f"I found the color, but I don't have a {target} supply in my 300-shade database yet."
+                    res = f"I see you're looking for {target}, but I need more specific {target} products in the colors.csv."
             else:
-                res = f"The best overall match for that area is **{find_precise_match(colors[0], df_colors)[0]['name']}**."
+                # Standard fallback
+                top_match, _ = find_precise_match(colors[0], df_colors)
+                res = f"The most prominent match in the center is **{top_match['name']}**. Were you looking for a specific detail like the orange building or the sky?"
         
         st.write(res)
         st.session_state.messages.append({"role": "assistant", "content": res})

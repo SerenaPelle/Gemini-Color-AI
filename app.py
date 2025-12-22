@@ -7,7 +7,6 @@ import pandas as pd
 # --- LOAD DATABASE ---
 @st.cache_data
 def load_data():
-    # Make sure colors.csv is in your GitHub folder!
     return pd.read_csv('colors.csv')
 
 try:
@@ -52,13 +51,29 @@ if uploaded_file:
             st.markdown(f'<div style="background-color:{hex_v}; height:40px; border-radius:5px;"></div>', unsafe_allow_html=True)
             st.markdown(f"**[{match['name']}]({match['url']})**")
 
-# --- CHAT (Fixed Indentation) ---
-with st.chat_message("assistant"):
+# --- CHAT SYSTEM (RESTORED) ---
+st.divider()
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# Display chat history
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.write(msg["content"])
+
+# Restore the Chat Input Box
+if prompt := st.chat_input("Ask about the blue boat or red roof..."):
+    # Add user message to history
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.write(prompt)
+
+    # Generate Assistant Response
+    with st.chat_message("assistant"):
         if not uploaded_file:
             response = "Please upload an image first!"
         else:
             query = prompt.lower()
-            # Expanded families to catch more keywords
             families = {
                 "red": ["red", "crimson", "terra", "vermilion", "rose", "pink", "magenta"],
                 "blue": ["blue", "sky", "indigo", "cobalt", "navy", "cyan", "azure"],
@@ -67,13 +82,11 @@ with st.chat_message("assistant"):
                 "brown": ["brown", "umber", "sienna", "wood", "earth"]
             }
             
-            # Check if user mentioned a color family
             target = next((f for f, words in families.items() if any(w in query for w in words)), None)
             
             if target:
                 filtered_df = df_colors[df_colors['name'].str.lower().str.contains('|'.join(families[target]))]
                 if not filtered_df.empty:
-                    # Find the best match for that color specifically
                     best_match = None
                     min_dist = 999
                     for rgb in colors:
@@ -82,19 +95,15 @@ with st.chat_message("assistant"):
                         if dist < min_dist:
                             min_dist = dist
                             best_match = m
-                    
-                    response = f"I've identified the **{target}** tones! For that specific area, I recommend **{best_match['name']}**. It's a professional-grade match for those pixels. [Shop here]({best_match['url']})"
+                    response = f"I've identified the **{target}** tones! I recommend **{best_match['name']}**. [Shop here]({best_match['url']})"
                 else:
-                    response = f"I see you're asking about {target} tones, but I need more shades in that category in my CSV to give you an accurate recommendation."
+                    response = f"I see you're looking for {target}, but I need more {target} shades in the CSV!"
             
-            # If the user asks about an object (like a boat) but doesn't name a color
             elif any(word in query for word in ["boat", "house", "water", "wall"]):
-                # Give a more detailed "Top 3" summary instead of just one color
                 top_3 = [find_best_match(c)['name'] for c in colors[:3]]
-                response = f"For the objects in this scene, I found several matching professional shades. The most prominent are **{top_3[0]}**, **{top_3[1]}**, and **{top_3[2]}**. Which specific part are you looking to match?"
-            
+                response = f"For the objects in this scene, the most prominent matches are **{top_3[0]}**, **{top_3[1]}**, and **{top_3[2]}**."
             else:
-                response = f"I've analyzed the image. The most accurate overall match is **{find_best_match(colors[0])['name']}**. Are you looking for a more specific detail like the sky or the buildings?"
+                response = f"I recommend **{find_best_match(colors[0])['name']}** for the main area."
         
         st.write(response)
         st.session_state.messages.append({"role": "assistant", "content": response})

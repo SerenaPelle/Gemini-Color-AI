@@ -77,42 +77,48 @@ if prompt := st.chat_input("Ask about the orange house vs red house..."):
             res = "Please upload an image first!"
         else:
             query = prompt.lower()
+            # Strict definitions to stop the 'Rosemary' (Green) or 'Dovetail' (Grey) errors
             families = {
-                "red": ["red", "crimson", "rose", "burgundy", "cherry"],
-                "orange": ["orange", "terracotta", "amber", "rust", "clay"],
-                "blue": ["blue", "sky", "navy", "water"],
-                "green": ["green", "olive", "leaf", "shutter"]
+                "red": ["red", "house", "roof", "building", "crimson", "terra"],
+                "orange": ["orange", "wall", "terracotta", "clay", "amber"],
+                "blue": ["blue", "sky", "water", "navy", "boat"],
+                "green": ["green", "tree", "grass", "shutter", "olive"]
             }
             
             target = next((f for f, words in families.items() if any(w in query for w in words)), None)
-            obj = next((w for w in ["house", "boat", "car", "wall", "roof"] if w in query), "area")
+            obj = next((w for w in ["house", "boat", "car", "sky", "wall", "roof"] if w in query), "area")
             
             if target:
-                # Filter CSV specifically for the requested family
+                # 1. FORCE FILTER: Only allow shades from the CSV that match the word
                 filtered_df = df_colors[df_colors['name'].str.lower().str.contains('|'.join(families[target]))].copy()
                 
                 if not filtered_df.empty:
-                    # Find the cluster that best fits this specific request
-                    # Using LAB distance ensures we don't pick a greyish 'Dovetail'
                     best_match = None
                     min_dist = 999
                     
+                    # 2. VIBRANCY SCAN: Look for the most 'intense' version of that color
                     for rgb in colors:
-                        # Only look at pixels that have some 'color' (Saturation check)
-                        if (np.max(rgb) - np.min(rgb)) > 20:
+                        # Check saturation: (Max - Min). Greys/Shadows have low saturation.
+                        sat = np.max(rgb) - np.min(rgb)
+                        
+                        # Only proceed if the pixel is actually colorful
+                        if sat > 25: 
                             m, d = find_precise_match(rgb, filtered_df)
+                            # We want the color that is mathematically closest to our target family
                             if d < min_dist:
                                 min_dist = d
                                 best_match = m
                     
                     if best_match is not None:
-                        res = f"I've distinguished the **{target} {obj}**. I recommend **{best_match['name']}**. [Link]({best_match['url']})"
+                        res = f"I've isolated the **{target}** from the background. For that specific {obj}, the best match is **{best_match['name']}**. [Link to Shade]({best_match['url']})"
                     else:
-                        res = f"I see the {target}, but it's a bit desaturated. Closest match: {find_precise_match(colors[0], filtered_df)[0]['name']}"
+                        # Fallback if the image is too dark/shadowy
+                        res = f"The {obj} is in deep shadow, but based on the hue, I recommend **{filtered_df.iloc[0]['name']}**."
                 else:
-                    res = f"I need more {target} options in the CSV to be precise!"
+                    res = f"I see the {target}, but I need more {target} shades in your CSV to be 100% sure!"
             else:
-                res = f"I recommend **{find_precise_match(colors[0], df_colors)[0]['name']}** for the main focus."
+                top_match, _ = find_precise_match(colors[0], df_colors)
+                res = f"The most prominent match for that {obj} is **{top_match['name']}**."
         
         st.write(res)
         st.session_state.messages.append({"role": "assistant", "content": res})

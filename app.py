@@ -73,31 +73,47 @@ if prompt := st.chat_input("Ex: What is the red on the house?"):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.write(prompt)
     
-    with st.chat_message("assistant"):
+   with st.chat_message("assistant"):
         if uploaded_file:
             query = prompt.lower()
-            found_response = False
             
-            # 1. SMART SCAN: Look through ALL detected image colors for a match to the user's word
-            for rgb in colors:
-                match = find_best_match(rgb)
-                # Check if the user is asking for a color that appears in our product names
-                color_keywords = ["red", "blue", "green", "orange", "yellow", "brown", "white", "grey", "black", "purple"]
+            # 1. Identify the user's intended color family
+            color_families = {
+                "red": ["red", "crimson", "terra", "vermilion", "rose", "scarlet"],
+                "blue": ["blue", "sky", "indigo", "cobalt", "cerulean", "navy"],
+                "green": ["green", "sage", "olive", "sap", "emerald"],
+                "orange": ["orange", "terracotta", "amber", "copper"],
+                "yellow": ["yellow", "ochre", "gold", "canary"]
+            }
+            
+            target_family = next((fam for fam, keywords in color_families.items() if any(k in query for k in keywords)), None)
+            
+            # 2. Search logic
+            if target_family:
+                # Filter the CSV for only the colors in that family
+                mask = df_colors['name'].str.lower().str.contains('|'.join(color_families[target_family]))
+                family_df = df_colors[mask]
                 
-                # If user says "red" and the product name contains "red" or "crimson" or "terracotta"
-                for word in query.split():
-                    if word in color_keywords and word in match['name'].lower():
-                        res = f"I see the {word} you're talking about! I recommend **{match['name']}**. It's the closest match for that specific area. [Shop Here]({match['url']})"
-                        found_response = True
-                        break
-                if found_response: break
-
-            # 2. FALLBACK: If no keyword match, use the highest-confidence pixel match
-            if not found_response:
-                best_overall = find_best_match(colors[0])
-                res = f"Based on the pixels in that area, the best professional match is **{best_overall['name']}**. Does this look like the shade you were looking for?"
-        else:
-            res = "Please upload an image so I can analyze those specific rooftops for you!"
-            
+                if not family_df.empty:
+                    # Find the closest match WITHIN that specific color family from the detected image clusters
+                    best_match = None
+                    min_dist = float('inf')
+                    
+                    for rgb in colors:
+                        # Calculate distance to all items in the filtered family
+                        for _, row in family_df.iterrows():
+                            dist = np.sqrt((row['r']-rgb[0])**2 + (row['g']-rgb[1])**2 + (row['b']-rgb[2])**2)
+                            if dist < min_dist:
+                                min_dist = dist
+                                best_match = row
+                    
+                    res = f"I see the {target_family} you're asking about! Based on those pixels, I recommend **{best_match['name']}**. [View Product ↗️]({best_match['url']})"
+                else:
+                    res = f"I see you're looking for {target_family}, but I don't have enough shades in my list. Try adding more {target_family}s to your CSV!"
+            else:
+                # Fallback to general closest match if no color word is used
+                top_hit = find_best_match(colors[0])
+                res = f"I've analyzed the main tones. I recommend **{top_hit['name']}**. Were you looking for a different specific detail?"
+        
         st.write(res)
         st.session_state.messages.append({"role": "assistant", "content": res})

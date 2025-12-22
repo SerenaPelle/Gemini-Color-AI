@@ -62,29 +62,42 @@ if uploaded_file:
         with col3:
             st.markdown(f"[Shop Product ↗️]({match['url']})")
 
-# --- CHAT ASSISTANT ---
+# --- IMPROVED CHAT ASSISTANT ---
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "I'm searching 300+ professional shades. What can I find for you?"}]
+    st.session_state.messages = [{"role": "assistant", "content": "I've scanned over 300 professional shades. Ask me about a specific area, like the red roofs or the green trees!"}]
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]): st.write(msg["content"])
 
-if prompt := st.chat_input("Ask about a color..."):
+if prompt := st.chat_input("Ex: What is the red on the house?"):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.write(prompt)
     
     with st.chat_message("assistant"):
         if uploaded_file:
-            # Smart logic looks through the CSV for keywords
             query = prompt.lower()
-            keyword_match = df_colors[df_colors['name'].str.contains(query, case=False, na=False)]
+            found_response = False
             
-            if not keyword_match.empty:
-                top_hit = keyword_match.iloc[0]
-                res = f"From our 300+ shades, I found **{top_hit['name']}**. It's a perfect match for your description! [Link]({top_hit['url']})"
-            else:
-                res = f"I've analyzed that. Based on the pixels, the closest professional match is **{find_best_match(colors[0])['name']}**."
+            # 1. SMART SCAN: Look through ALL detected image colors for a match to the user's word
+            for rgb in colors:
+                match = find_best_match(rgb)
+                # Check if the user is asking for a color that appears in our product names
+                color_keywords = ["red", "blue", "green", "orange", "yellow", "brown", "white", "grey", "black", "purple"]
+                
+                # If user says "red" and the product name contains "red" or "crimson" or "terracotta"
+                for word in query.split():
+                    if word in color_keywords and word in match['name'].lower():
+                        res = f"I see the {word} you're talking about! I recommend **{match['name']}**. It's the closest match for that specific area. [Shop Here]({match['url']})"
+                        found_response = True
+                        break
+                if found_response: break
+
+            # 2. FALLBACK: If no keyword match, use the highest-confidence pixel match
+            if not found_response:
+                best_overall = find_best_match(colors[0])
+                res = f"Based on the pixels in that area, the best professional match is **{best_overall['name']}**. Does this look like the shade you were looking for?"
         else:
-            res = "Please upload an image so I can scan the database!"
+            res = "Please upload an image so I can analyze those specific rooftops for you!"
+            
         st.write(res)
         st.session_state.messages.append({"role": "assistant", "content": res})

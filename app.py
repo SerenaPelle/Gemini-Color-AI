@@ -103,15 +103,25 @@ if uploaded_file:
                 st.markdown(f'<div style="background-color:{hex_val}; height:40px; border-radius:10px;"></div>', unsafe_allow_html=True)
                 st.caption(f"**{product_name}**")
 
-# --- CHAT INTERFACE ---
-st.divider()
-st.subheader("💬 Ask Your Assistant")
+import webcolors
 
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+def get_color_name(rgb):
+    """Translates RGB numbers into a human word like 'orange' or 'blue'"""
+    try:
+        # Look for the closest CSS3 color name
+        min_colors = {}
+        for key, name in webcolors.CSS3_HEX_TO_NAMES.items():
+            r_c, g_c, b_c = webcolors.hex_to_rgb(key)
+            rd = (r_c - rgb[0]) ** 2
+            gd = (g_c - rgb[1]) ** 2
+            bd = (b_c - rgb[2]) ** 2
+            min_colors[(rd + gd + bd)] = name
+        return min_colors[min(min_colors.keys())]
+    except:
+        return "unknown"
 
-if prompt := st.chat_input("Ex: 'Which blue is best for a sky?'"):
+# --- UPDATED CHAT LOGIC ---
+if prompt := st.chat_input("Ask about any part of the image..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
@@ -119,20 +129,22 @@ if prompt := st.chat_input("Ex: 'Which blue is best for a sky?'"):
     with st.chat_message("assistant"):
         if uploaded_file:
             user_query = prompt.lower()
+            best_match = None
             
-            # --- STEP 2: SMART SEARCH LOGIC ---
-            # If user asks for blue, search ALL 10 found colors for a 'Blue' or 'Sky' product
-            if "blue" in user_query or "sky" in user_query:
-                blue_matches = [m["name"] for m in found_matches if "blue" in m["name"].lower() or "sky" in m["name"].lower()]
+            # THE BRAIN: Scan all 10 colors found in the user's specific image
+            for m in found_matches:
+                actual_color_name = get_color_name(m["rgb"]) # e.g. "saddlebrown"
                 
-                if blue_matches:
-                    response = f"I found a great sky match! Based on the blues in your photo, I recommend **{blue_matches[0]}**."
-                else:
-                    response = "I can see the sky, but it's quite pale. I'd recommend using **Prismacolor: Sky Blue Light** for those areas."
+                # If the user's word is in the name of the color found in the photo
+                if any(word in actual_color_name.lower() for word in user_query.split()):
+                    best_match = m["name"]
+                    break
+            
+            if best_match:
+                response = f"I've identified that specific area! I recommend **{best_match}** to match that tone."
             else:
-                response = f"For the main parts of this image, I recommend **{found_matches[0]['name']}**."
-        else:
-            response = "Please upload an image so I can analyze the colors!"
+                # Default to the most prominent color if no color word is detected
+                response = f"I've analyzed the whole image. The most striking match I found is **{found_matches[0]['name']}**. Are you looking for a different specific detail?"
         
         st.markdown(response)
-        st.session_state.messages.append({"role": "assistant", "content": response})
+        st.session_state.messages.append({"role": "assistant", "content": response}).append({"role": "assistant", "content": response})

@@ -73,48 +73,44 @@ if prompt := st.chat_input("Ask about the specific blue in the water..."):
             res = "Please upload an image first!"
         else:
             query = prompt.lower()
-            # Expanded families with "Saturation Weights"
             families = {
-                "orange": ["orange", "terracotta", "rust", "amber", "clay"],
-                "blue": ["blue", "sky", "water", "navy", "cyan", "azure"],
-                "red": ["red", "crimson", "scarlet", "roof", "building"],
-                "pink": ["pink", "magenta", "fuchsia", "building"],
-                "green": ["green", "grass", "tree", "olive"]
+                "red": ["red", "light", "tail", "crimson", "scarlet", "stop"],
+                "orange": ["orange", "terracotta", "rust", "amber", "wall"],
+                "blue": ["blue", "sky", "water", "navy", "cyan"],
+                "green": ["green", "leaf", "tree", "sage", "olive"]
             }
             
             target = next((f for f, words in families.items() if any(w in query for w in words)), None)
             
             if target:
-                # 1. Filter the CSV for the requested family
+                # 1. Filter CSV for the family
                 filtered_df = df_colors[df_colors['name'].str.lower().str.contains('|'.join(families[target]))].copy()
                 
                 if not filtered_df.empty:
-                    # 2. INTELLIGENT SCAN: Find the pixel in the image that is the "Most Orange"
-                    # We look through all 15 clusters to find the one that fits the family best
+                    # 2. DEEP SCAN: Look at every pixel in the 100x100 thumbnail
+                    # This finds the 'purest' version of the color you asked for
                     best_match = None
                     min_dist = 999
                     
-                    for rgb in colors:
-                        # Find the best supply match for this specific cluster
-                        match, dist = find_precise_match(rgb, filtered_df)
-                        
-                        # We prioritize clusters that are actually colorful, not grey
-                        saturation = np.max(rgb) - np.min(rgb)
-                        weighted_dist = dist / (saturation + 1) # Lower is better
-                        
-                        if weighted_dist < min_dist:
-                            min_dist = weighted_dist
-                            best_match = match
-                            detected_rgb = rgb
+                    # We scan all pixels to find the one that fits your 'Red' request best
+                    for px in pixels:
+                        # Only check pixels that are actually colorful (Saturation check)
+                        if (np.max(px) - np.min(px)) > 30: 
+                            match, dist = find_precise_match(px, filtered_df)
+                            if dist < min_dist:
+                                min_dist = dist
+                                best_match = match
                     
-                    hex_match = '#%02x%02x%02x' % tuple(detected_rgb)
-                    res = f"I've found that specific **{target}** shade! Based on the vibrant pixels at the top, I recommend **{best_match['name']}**. \n\n[Shop the exact shade here ↗️]({best_match['url']})"
+                    if best_match is not None:
+                        res = f"I've identified that specific **{target}** detail! For the car light/area, I recommend **{best_match['name']}**. [Shop this shade ↗️]({best_match['url']})"
+                    else:
+                        res = f"I see you're asking about {target}, but I couldn't find a strong enough match in the image details. Try asking about a larger area!"
                 else:
-                    res = f"I see you're looking for {target}, but I need more specific {target} products in the colors.csv."
+                    res = f"I need more {target} shades in your CSV to give a precise answer."
             else:
-                # Standard fallback
-                top_match, _ = find_precise_match(colors[0], df_colors)
-                res = f"The most prominent match in the center is **{top_match['name']}**. Were you looking for a specific detail like the orange building or the sky?"
+                # Fallback
+                top_hit, _ = find_precise_match(colors[0], df_colors)
+                res = f"The most prominent match in the center is **{top_hit['name']}**. Were you looking for the car light or the orange buildings?"
         
         st.write(res)
         st.session_state.messages.append({"role": "assistant", "content": res})

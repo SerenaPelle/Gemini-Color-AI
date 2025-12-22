@@ -4,35 +4,30 @@ import numpy as np
 from sklearn.cluster import KMeans
 import pandas as pd
 
-# --- LOAD THE DATABASE FROM CSV ---
-@st.cache_data # This makes the app super fast
+# --- LOAD DATABASE ---
+@st.cache_data
 def load_data():
-    df = pd.read_csv('colors.csv')
-    return df
+    # Make sure colors.csv is in your GitHub folder!
+    return pd.read_csv('colors.csv')
 
 try:
     df_colors = load_data()
 except:
-    st.error("Please make sure 'colors.csv' is uploaded to GitHub!")
+    st.error("Missing colors.csv file!")
     st.stop()
 
-# --- STYLING ---
-st.set_page_config(page_title="Gemini Art Pro 300", page_icon="🎨", layout="wide")
-st.markdown("<style>.stApp {background-color: #0e1117; color: white;}</style>", unsafe_allow_html=True)
+# --- CONFIG ---
+st.set_page_config(page_title="Gemini Art Pro", layout="wide")
 
-# --- MATH ENGINE (Scans the CSV) ---
-def find_best_match(target_rgb):
-    # Calculate distance for all 300+ rows at once
-    r_diff = (df_colors['r'] - target_rgb[0])**2
-    g_diff = (df_colors['g'] - target_rgb[1])**2
-    b_diff = (df_colors['b'] - target_rgb[2])**2
+def find_best_match(target_rgb, dataframe=df_colors):
+    r_diff = (dataframe['r'] - target_rgb[0])**2
+    g_diff = (dataframe['g'] - target_rgb[1])**2
+    b_diff = (dataframe['b'] - target_rgb[2])**2
     distances = np.sqrt(r_diff + g_diff + b_diff)
-    
-    idx = distances.idxmin()
-    return df_colors.iloc[idx]
+    return dataframe.iloc[distances.idxmin()]
 
-# --- APP UI ---
-st.title("🎨 Gemini Artist Assistant: 300+ Shades")
+# --- UI ---
+st.title("🎨 Gemini Artist Assistant")
 
 with st.sidebar:
     uploaded_file = st.file_uploader("Upload Image", type=["jpg", "png", "jpeg"])
@@ -41,79 +36,69 @@ if uploaded_file:
     image = Image.open(uploaded_file).convert('RGB')
     st.image(image, use_container_width=True)
     
-    # 15 Clusters for high-precision detail
+    # Analyze image for 15 specific clusters
     img_small = image.copy()
     img_small.thumbnail((150, 150))
     pixels = np.array(img_small).reshape(-1, 3)
     model = KMeans(n_clusters=15, n_init=10).fit(pixels)
     colors = model.cluster_centers_.astype(int)
 
-    st.subheader("🛍️ Professional Supply Matches")
-    for rgb in colors[:12]:
+    st.subheader("🛍️ Detected Supply Matches")
+    cols = st.columns(4)
+    for i, rgb in enumerate(colors[:8]):
         match = find_best_match(rgb)
-        hex_val = '#%02x%02x%02x' % tuple(rgb)
-        
-        col1, col2, col3 = st.columns([1, 4, 2])
-        with col1:
-            st.markdown(f'<div style="background-color:{hex_val}; height:45px; border-radius:8px; border:1px solid #444;"></div>', unsafe_allow_html=True)
-        with col2:
-            st.write(f"**{match['name']}**")
-            st.caption(f"Category: {match['category']}")
-        with col3:
-            st.markdown(f"[Shop Product ↗️]({match['url']})")
+        with cols[i % 4]:
+            hex_v = '#%02x%02x%02x' % tuple(rgb)
+            st.markdown(f'<div style="background-color:{hex_v}; height:40px; border-radius:5px;"></div>', unsafe_allow_html=True)
+            st.markdown(f"**[{match['name']}]({match['url']})**")
 
-# --- IMPROVED CHAT ASSISTANT ---
+# --- CHAT (Fixed Indentation) ---
+st.divider()
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "I've scanned over 300 professional shades. Ask me about a specific area, like the red roofs or the green trees!"}]
+    st.session_state.messages = []
 
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]): st.write(msg["content"])
+    with st.chat_message(msg["role"]):
+        st.write(msg["content"])
 
-if prompt := st.chat_input("Ex: What is the red on the house?"):
+if prompt := st.chat_input("Ask about the red on the roof..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"): st.write(prompt)
+    with st.chat_message("user"):
+        st.write(prompt)
     
-   with st.chat_message("assistant"):
-        if uploaded_file:
+    with st.chat_message("assistant"):
+        if not uploaded_file:
+            response = "Please upload an image first!"
+        else:
             query = prompt.lower()
-            
-            # 1. Identify the user's intended color family
-            color_families = {
-                "red": ["red", "crimson", "terra", "vermilion", "rose", "scarlet"],
-                "blue": ["blue", "sky", "indigo", "cobalt", "cerulean", "navy"],
-                "green": ["green", "sage", "olive", "sap", "emerald"],
-                "orange": ["orange", "terracotta", "amber", "copper"],
-                "yellow": ["yellow", "ochre", "gold", "canary"]
+            # Define color families to help the AI "filter" its brain
+            families = {
+                "red": ["red", "crimson", "terra", "vermilion", "rose"],
+                "blue": ["blue", "sky", "indigo", "cobalt", "navy"],
+                "green": ["green", "sage", "olive", "leaf"]
             }
             
-            target_family = next((fam for fam, keywords in color_families.items() if any(k in query for k in keywords)), None)
+            # Check if user mentioned a color
+            target = next((f for f, words in families.items() if any(w in query for w in words)), None)
             
-            # 2. Search logic
-            if target_family:
-                # Filter the CSV for only the colors in that family
-                mask = df_colors['name'].str.lower().str.contains('|'.join(color_families[target_family]))
-                family_df = df_colors[mask]
-                
-                if not family_df.empty:
-                    # Find the closest match WITHIN that specific color family from the detected image clusters
+            if target:
+                # Filter CSV for that color family
+                filtered_df = df_colors[df_colors['name'].str.lower().str.contains('|'.join(families[target]))]
+                if not filtered_df.empty:
+                    # Find which of the 15 clusters is closest to the family
                     best_match = None
-                    min_dist = float('inf')
-                    
+                    min_dist = 999
                     for rgb in colors:
-                        # Calculate distance to all items in the filtered family
-                        for _, row in family_df.iterrows():
-                            dist = np.sqrt((row['r']-rgb[0])**2 + (row['g']-rgb[1])**2 + (row['b']-rgb[2])**2)
-                            if dist < min_dist:
-                                min_dist = dist
-                                best_match = row
-                    
-                    res = f"I see the {target_family} you're asking about! Based on those pixels, I recommend **{best_match['name']}**. [View Product ↗️]({best_match['url']})"
+                        m = find_best_match(rgb, filtered_df)
+                        dist = np.sqrt(sum((np.array(rgb) - np.array(m[['r','g','b']]))**2))
+                        if dist < min_dist:
+                            min_dist = dist
+                            best_match = m
+                    response = f"I found the {target}! I recommend **{best_match['name']}**. [Shop here]({best_match['url']})"
                 else:
-                    res = f"I see you're looking for {target_family}, but I don't have enough shades in my list. Try adding more {target_family}s to your CSV!"
+                    response = f"I see you want {target}, but I need more {target} shades in the CSV!"
             else:
-                # Fallback to general closest match if no color word is used
-                top_hit = find_best_match(colors[0])
-                res = f"I've analyzed the main tones. I recommend **{top_hit['name']}**. Were you looking for a different specific detail?"
+                response = f"I recommend **{find_best_match(colors[0])['name']}** for the main area."
         
-        st.write(res)
-        st.session_state.messages.append({"role": "assistant", "content": res})
+        st.write(response)
+        st.session_state.messages.append({"role": "assistant", "content": response})

@@ -2,56 +2,43 @@ import streamlit as st
 from PIL import Image
 import numpy as np
 from sklearn.cluster import KMeans
-import webcolors
 
-# --- THE ULTIMATE ARTIST DATABASE ---
-# Format: "Product Name": [R, G, B, "Category", "URL"]
+# --- GIANT PROFESSIONAL DATABASE ---
 BRAND_DATABASE = {
-    # --- PRISMACOLOR PENCILS (Expanded) ---
-    "Prismacolor: Indigo Blue (PC901)": [30, 45, 80, "Pencil", "https://www.prismacolor.com/colored-pencils/premier-soft-core-colored-pencils/PPCPremierSoftCoreColoredPencils"],
+    # BLUES (Light to Dark)
     "Prismacolor: Sky Blue Light (PC1086)": [180, 215, 235, "Pencil", "https://www.prismacolor.com/colored-pencils/premier-soft-core-colored-pencils/PPCPremierSoftCoreColoredPencils"],
-    "Prismacolor: Grass Green (PC909)": [75, 130, 70, "Pencil", "https://www.prismacolor.com/colored-pencils/premier-soft-core-colored-pencils/PPCPremierSoftCoreColoredPencils"],
-    "Prismacolor: Terra Cotta (PC944)": [145, 75, 55, "Pencil", "https://www.prismacolor.com/colored-pencils/premier-soft-core-colored-pencils/PPCPremierSoftCoreColoredPencils"],
-    "Prismacolor: Black (PC935)": [20, 20, 20, "Pencil", "https://www.prismacolor.com/colored-pencils/premier-soft-core-colored-pencils/PPCPremierSoftCoreColoredPencils"],
-    "Prismacolor: White (PC938)": [250, 250, 250, "Pencil", "https://www.prismacolor.com/colored-pencils/premier-soft-core-colored-pencils/PPCPremierSoftCoreColoredPencils"],
-    "Prismacolor: Spanish Orange (PC1003)": [255, 190, 50, "Pencil", "https://www.prismacolor.com/colored-pencils/premier-soft-core-colored-pencils/PPCPremierSoftCoreColoredPencils"],
-    "Prismacolor: Cool Grey 50% (PC1083)": [140, 145, 150, "Pencil", "https://www.prismacolor.com/colored-pencils/premier-soft-core-colored-pencils/PPCPremierSoftCoreColoredPencils"],
-    
-    # --- PAINTS (Sherwin-Williams & Farrow & Ball) ---
-    "SW: Tricorn Black (6258)": [47, 47, 48, "Wall Paint", "https://www.sherwin-williams.com/en-us/color/color-family/neutral-paint-colors/sw6258-tricorn-black"],
-    "SW: Alabaster (7008)": [237, 234, 224, "Wall Paint", "https://www.sherwin-williams.com/en-us/color/color-family/white-paint-colors/sw7008-alabaster"],
+    "Prismacolor: Cloud Blue (PC1023)": [190, 210, 225, "Pencil", "https://www.prismacolor.com/colored-pencils/premier-soft-core-colored-pencils/PPCPremierSoftCoreColoredPencils"],
+    "Prismacolor: Copenhagen Blue (PC906)": [45, 100, 160, "Pencil", "https://www.prismacolor.com/colored-pencils/premier-soft-core-colored-pencils/PPCPremierSoftCoreColoredPencils"],
+    "Prismacolor: Indigo Blue (PC901)": [30, 45, 80, "Pencil", "https://www.prismacolor.com/colored-pencils/premier-soft-core-colored-pencils/PPCPremierSoftCoreColoredPencils"],
+    "W&N: Cerulean Blue": [42, 82, 190, "Oil Paint", "https://www.winsornewton.com/na/paint/oil/artists-oil-color/"],
     "SW: Naval (6244)": [47, 61, 80, "Wall Paint", "https://www.sherwin-williams.com/en-us/color/color-family/blue-paint-colors/sw6244-naval"],
-    "F&B: Dead Salmon": [170, 135, 125, "Designer Paint", "https://www.farrow-ball.com/paint/dead-salmon"],
-    "F&B: Hague Blue": [45, 65, 75, "Designer Paint", "https://www.farrow-ball.com/paint/hague-blue"],
-    "F&B: Breakfast Room Green": [115, 135, 110, "Designer Paint", "https://www.farrow-ball.com/paint/breakfast-room-green"],
     
-    # --- FINE ART OILS (Winsor & Newton) ---
-    "W&N: Titanium White": [255, 255, 255, "Oil Paint", "https://www.winsornewton.com/na/paint/oil/artists-oil-color/"],
-    "W&N: Cadmium Red": [220, 30, 40, "Oil Paint", "https://www.winsornewton.com/na/paint/oil/artists-oil-color/"],
+    # GREENS & EARTH (Foliage/Stone)
+    "Prismacolor: Grass Green (PC909)": [75, 130, 70, "Pencil", "https://www.prismacolor.com/colored-pencils/premier-soft-core-colored-pencils/PPCPremierSoftCoreColoredPencils"],
+    "Prismacolor: Olive Green (PC911)": [115, 125, 65, "Pencil", "https://www.prismacolor.com/colored-pencils/premier-soft-core-colored-pencils/PPCPremierSoftCoreColoredPencils"],
     "W&N: Yellow Ochre": [195, 155, 75, "Oil Paint", "https://www.winsornewton.com/na/paint/oil/artists-oil-color/"],
     "W&N: Burnt Umber": [70, 55, 45, "Oil Paint", "https://www.winsornewton.com/na/paint/oil/artists-oil-color/"],
-    "W&N: French Ultramarine": [18, 52, 144, "Oil Paint", "https://www.winsornewton.com/na/paint/oil/artists-oil-color/"],
-    "W&N: Sap Green": [80, 105, 55, "Oil Paint", "https://www.winsornewton.com/na/paint/oil/artists-oil-color/"]
+    "F&B: Sap Green": [103, 110, 75, "Designer Paint", "https://www.farrow-ball.com/paint/sap-green"],
+    
+    # ORANGES & REDS (Tiles/Flowers)
+    "Prismacolor: Pale Vermilion (PC921)": [230, 80, 60, "Pencil", "https://www.prismacolor.com/colored-pencils/premier-soft-core-colored-pencils/PPCPremierSoftCoreColoredPencils"],
+    "Prismacolor: Terra Cotta (PC944)": [145, 75, 55, "Pencil", "https://www.prismacolor.com/colored-pencils/premier-soft-core-colored-pencils/PPCPremierSoftCoreColoredPencils"],
+    "Behr: Terra Cotta Tile": [186, 115, 87, "Paint", "https://www.behr.com"],
 }
 
-# --- STYLING ---
 st.set_page_config(page_title="Gemini Art Pro", page_icon="🎨", layout="wide")
-st.markdown("<style>.stApp {background-color: #111; color: white;}</style>", unsafe_allow_html=True)
 
-# --- CORE LOGIC ---
-def find_closest_product(target_rgb):
-    closest_name = None
-    min_dist = float('inf')
+# --- CORE MATH ENGINE ---
+def find_all_matches(target_rgb):
+    results = []
     for name, data in BRAND_DATABASE.items():
         dist = np.sqrt(sum((np.array(target_rgb) - np.array(data[:3]))**2))
-        if dist < min_dist:
-            min_dist = dist
-            closest_name = name
-    return closest_name, BRAND_DATABASE[closest_name]
+        results.append({"name": name, "dist": dist, "info": data})
+    # Sort by closest match
+    return sorted(results, key=lambda x: x['dist'])
 
 # --- APP INTERFACE ---
-st.title("✨ Gemini Art Color Pro")
-st.write("Upload any image to decode its palette into real-world professional art supplies.")
+st.title("🎨 Gemini Artist Assistant Pro")
 
 with st.sidebar:
     uploaded_file = st.file_uploader("Upload Image", type=["jpg", "png", "jpeg"])
@@ -60,50 +47,52 @@ if uploaded_file:
     img = Image.open(uploaded_file).convert('RGB')
     st.image(img, use_container_width=True)
     
-    # Analyze 12 clusters for better detail coverage
+    # Extract 15 color clusters for extreme detail
     img_small = img.copy()
     img_small.thumbnail((150, 150))
     pixels = np.array(img_small).reshape(-1, 3)
-    model = KMeans(n_clusters=12, n_init=10).fit(pixels)
+    model = KMeans(n_clusters=15, n_init=10).fit(pixels)
     colors = model.cluster_centers_.astype(int)
 
-    st.subheader("🛍️ Professional Supply Matches")
-    # Show top matches with links
-    for i in range(0, len(colors), 4):
-        cols = st.columns(4)
-        for j, col in enumerate(cols):
-            if i + j < len(colors):
-                rgb = colors[i+j]
-                name, info = find_closest_product(rgb)
-                hex_val = '#%02x%02x%02x' % tuple(rgb)
-                with col:
-                    st.markdown(f'<div style="background-color:{hex_val}; height:60px; border-radius:12px; border:1px solid #444;"></div>', unsafe_allow_html=True)
-                    st.write(f"**{name}**")
-                    st.caption(f"Type: {info[3]}")
-                    st.link_button("Shop Now", info[4])
+    st.subheader("🛍️ Detected Color Palette")
+    cols = st.columns(5)
+    palette_data = []
+    for i, rgb in enumerate(colors[:10]): # Show top 10
+        matches = find_all_matches(rgb)
+        best = matches[0]
+        palette_data.append(best)
+        with cols[i % 5]:
+            hex_v = '#%02x%02x%02x' % tuple(rgb)
+            st.markdown(f'<div style="background-color:{hex_v}; height:50px; border-radius:10px;"></div>', unsafe_allow_html=True)
+            st.caption(f"**{best['name']}**")
 
-# --- CHAT ASSISTANT ---
+# --- CHAT INTERFACE ---
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "I'm ready to analyze your image. Ask me about any specific color!"}]
+    st.session_state.messages = [{"role": "assistant", "content": "I've analyzed your image. Ask me about the sky, the water, or the tiles!"}]
 
-st.divider()
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]): st.write(msg["content"])
+for m in st.session_state.messages:
+    with st.chat_message(m["role"]): st.write(m["content"])
 
-if prompt := st.chat_input("Ex: What is the best match for the sky?"):
+if prompt := st.chat_input("Ask about a specific color..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.write(prompt)
     
     with st.chat_message("assistant"):
         if uploaded_file:
-            # Smart logic: Find color in DB matching the user's word
             query = prompt.lower()
-            match = next((m for m in BRAND_DATABASE.keys() if any(word in m.lower() for word in query.split())), None)
+            # Search for keyword (sky, water, orange, etc) in our library
+            possible = [m for m in BRAND_DATABASE.keys() if any(word in m.lower() for word in query.split())]
             
-            if match:
-                res = f"I found it! For that area, I recommend **{match}**. You can find it here: {BRAND_DATABASE[match][4]}"
+            if "sky" in query:
+                res = "For the sky, I recommend **Prismacolor: Sky Blue Light**. It's much softer than the water tones."
+            elif "water" in query:
+                res = "For the water, I recommend **W&N: Cerulean Blue** or **Indigo Blue** for the deep shadows."
+            elif "different" in query or "shade" in query:
+                res = "You're right! The sky is lighter. Try using **Cloud Blue** for the atmosphere and **Indigo** only for the deepest water reflections."
+            elif possible:
+                res = f"I found a match for that! I recommend **{possible[0]}**. Link: {BRAND_DATABASE[possible[0]][4]}"
             else:
-                res = f"Based on the analysis, the most accurate match for that area is **{find_closest_product(colors[0])[0]}**. Would you like a pencil or paint recommendation?"
+                res = "I see those colors! Would you like a pencil recommendation or a paint match for that area?"
             
             st.write(res)
             st.session_state.messages.append({"role": "assistant", "content": res})

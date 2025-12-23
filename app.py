@@ -15,6 +15,8 @@ def load_data():
 df_colors = load_data()
 
 def find_precise_match(target_rgb, dataframe):
+    if dataframe.empty:
+        return None
     target_norm = np.array(target_rgb).reshape(1, 1, 3) / 255.0
     target_lab = color.rgb2lab(target_norm).reshape(3)
     db_labs = np.stack(dataframe['lab'].values)
@@ -22,48 +24,77 @@ def find_precise_match(target_rgb, dataframe):
     return dataframe.iloc[np.argmin(distances)]
 
 # --- UI SETUP ---
-st.set_page_config(page_title="Pro-Palette & Picker", layout="wide")
-st.title("🎯 Pro-Palette & Picker")
+st.set_page_config(page_title="Gemini Art Pro: Multi-Medium", layout="wide")
+st.title("🎯 Pro-Palette: Pencil, Oil & Acrylic")
 
-if uploaded_file := st.sidebar.file_uploader("Upload Scene", type=["jpg", "png"]):
+# --- SIDEBAR FILTERS ---
+with st.sidebar:
+    uploaded_file = st.file_uploader("Upload Scene", type=["jpg", "png"])
+    st.divider()
+    st.subheader("Filter by Medium")
+    # This allows users to search only for specific art supplies
+    medium_choice = st.multiselect(
+        "Select allowed supplies:",
+        options=["Pencil", "Oil Paint", "Acrylic Paint", "Wall Paint"],
+        default=["Pencil", "Oil Paint", "Acrylic Paint", "Wall Paint"]
+    )
+
+if uploaded_file:
     img = Image.open(uploaded_file).convert('RGB')
     width, height = img.size
+    
+    # Filter the database based on the sidebar selection
+    active_df = df_colors[df_colors['category'].isin(medium_choice)]
     
     col1, col2 = st.columns([2, 1])
     
     with col2:
         st.subheader("Interactive Picker")
-        # Coordinate Sliders
         x = st.slider("Left ↔ Right", 0, width, width // 2)
         y = st.slider("Top ↔ Bottom", 0, height, height // 2)
         
-        # Get the exact color at that pixel
         pixel_rgb = img.getpixel((x, y))
-        match = find_precise_match(pixel_rgb, df_colors)
         
-        st.divider()
-        st.subheader("🛍️ Matching Product")
-        st.markdown(f'<div style="background-color:rgb{pixel_rgb}; height:60px; border-radius:10px; border:2px solid white; margin-bottom:10px;"></div>', unsafe_allow_html=True)
-        st.write(f"**Name:** {match['name']}")
-        st.write(f"**Type:** {match['category']}")
-        st.markdown(f"[Shop this Shade ↗️]({match['url']})")
+        if not active_df.empty:
+            match = find_precise_match(pixel_rgb, active_df)
+            
+            st.divider()
+            st.subheader("🛍️ Precise Match")
+            st.markdown(f'<div style="background-color:rgb{pixel_rgb}; height:60px; border-radius:10px; border:2px solid white;"></div>', unsafe_allow_html=True)
+            st.write(f"**Name:** {match['name']}")
+            st.write(f"**Medium:** {match['category']}")
+            st.markdown(f"[Shop this Shade ↗️]({match['url']})")
+        else:
+            st.warning("Please select at least one medium in the sidebar!")
         
     with col1:
-        # 1. DRAW THE POINTER
-        # We create a copy of the image and draw a red targeting circle on it
+        # Crosshair logic
         draw_img = img.copy()
         draw = ImageDraw.Draw(draw_img)
-        radius = 20
-        # Draw the 'Crosshair' circle
-        draw.ellipse((x-radius, y-radius, x+radius, y+radius), outline="red", width=5)
-        # Draw a small center dot
-        draw.ellipse((x-2, y-2, x+2, y+2), fill="red")
-        
+        radius = 25
+        draw.ellipse((x-radius, y-radius, x+radius, y+radius), outline="red", width=8)
         st.image(draw_img, use_container_width=True)
-        st.caption(f"Currently analyzing pixel at: {x}, {y}")
 
-# --- CHAT ASSISTANT ---
+# --- SMART CHAT (AUTO-FILTERING) ---
 st.divider()
-if prompt := st.chat_input("Ask about this specific color..."):
+if prompt := st.chat_input("Ask about the red house colors..."):
     with st.chat_message("assistant"):
-        st.write(f"I see you've targeted a specific area. That exact shade is closest to **{match['name']}**. Because this is a **{match['category']}**, it will have the right finish for the building you are painting.")
+        query = prompt.lower()
+        # The AI now prioritizes the user's filtered medium
+        if active_df.empty:
+            st.write("I need you to select a medium (Pencils, Oils, etc.) in the sidebar first!")
+        else:
+            # We look for color keywords (red, orange, etc.)
+            colors_map = {"red": ["red", "crimson"], "orange": ["orange", "terra"]}
+            target_hue = next((k for k, v in colors_map.items() if any(word in query for word in v)), None)
+            
+            if target_hue:
+                # Filter specifically for the color family + the chosen medium
+                hue_df = active_df[active_df['name'].str.lower().str.contains(target_hue)]
+                if not hue_df.empty:
+                    chat_match = find_precise_match(pixel_rgb, hue_df)
+                    st.write(f"In your selected **{', '.join(medium_choice)}** range, the best match for that {target_hue} area is **{chat_match['name']}**.")
+                else:
+                    st.write(f"I found the color, but I don't have any **{target_hue}** supplies in the **{', '.join(medium_choice)}** category yet.")
+            else:
+                st.write(f"The exact match for that spot in your selected media is **{match['name']}**.")

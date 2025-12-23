@@ -1,0 +1,12 @@
+{
+  "color_theory": {
+    "venetian_palette": ["terracotta", "ochre", "oxide red", "cobalt blue", "pink"],
+    "shadow_logic": "Shadows in warm Mediterranean scenes often lean toward cool blues or deep purples.",
+    "mixing_rules": "To tone down a vibrant orange house, add a touch of its complement, blue."
+  },
+  "medium_characteristics": {
+    "Oil Paint": "Best for blending soft transitions on architectural walls.",
+    "Acrylic Paint": "Dries fast, great for the sharp edges of window frames.",
+    "Pencil": "Excellent for fine details like boat rigging or balcony railings."
+  }
+}
